@@ -24,7 +24,7 @@ bin_PROGRAMS = swssloglevel
 if DEBUG
 DBGFLAGS = -ggdb -DDEBUG -g -rdynamic
 else
-DBGFLAGS = -g -DNDEBUG
+DBGFLAGS = -g  -DDEBUG
 endif
 
 libswsscommon_la_SOURCES = \
