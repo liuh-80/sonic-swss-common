@@ -80,6 +80,10 @@ public:
     void AppendDefaultValues(std::string table, std::string row, std::vector<std::pair<std::string, std::string> > &values);
 
     std::shared_ptr<std::string> GetDefaultValue(std::string table, std::string row, std::string field);
+    
+#ifdef DEBUG
+    bool FeatureEnabledByEnvironmentVariable();
+#endif
 
 private:
     DefaultValueProvider();
