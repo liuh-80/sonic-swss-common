@@ -32,7 +32,7 @@ class RedisClient
 
         int64_t hdel(const std::string &key, const std::vector<std::string> &fields) { return m_db->hdel(key, fields); }
 
-        std::unordered_map<std::string, std::string> hgetall(const std::string &key) { return m_db->hgetall(key); }
+        std::unordered_map<std::string, std::string> hgetall(const std::string &key) { return m_db->hgetall_unordered(key); }
 
         template <typename OutputIterator>
         void hgetall(const std::string &key, OutputIterator result) { return m_db->hgetall(key, result); }

@@ -11,6 +11,7 @@
 #include "common/dbconnector.h"
 #include "common/dbdecorator.h"
 #include "common/redisreply.h"
+#include "common/redispipeline.h"
 #include "common/redisapi.h"
 #include "common/pubsub.h"
 
@@ -508,11 +509,18 @@ void DBConnector::select(DBConnector *db)
     r.checkStatusOK();
 }
 
+DBConnector::DBConnector()
+{
+}
+
+DBConnector::~DBConnector()
+{
+}
+
 DBConnector::DBConnector(const DBConnector &other)
     : RedisContext(other)
     , m_dbId(other.m_dbId)
     , m_namespace(other.m_namespace)
-    , m_db_decorators(other.m_db_decorators)
 {
     select(this);
 }
@@ -609,7 +617,6 @@ DBConnector *DBConnector::newConnector(unsigned int timeout) const
 
     ret->m_dbName = m_dbName;
     ret->setNamespace(getNamespace());
-    ret->m_db_decorators = m_db_decorators;
 
     return ret;
 }
@@ -783,15 +790,7 @@ shared_ptr<string> DBConnector::hget(const string &key, const string &field)
 
     if (reply->type == REDIS_REPLY_NIL)
     {
-        auto dbdecortor = this->getDBDecorator(ReadDecorator);
-        if (dbdecortor)
-        {
-            return dbdecortor->decorate(key, field);
-        }
-        else
-        {
-            return shared_ptr<string>(NULL);
-        }
+        return shared_ptr<string>(NULL);
     }
 
     if (reply->type == REDIS_REPLY_STRING)
@@ -927,89 +926,98 @@ void DBConnector::del(const std::vector<std::string>& keys)
     RedisReply r(this, command, REDIS_REPLY_NIL);
 }
 
-
-const std::shared_ptr<DBDecorator> DBConnector::setDBDecorator(std::shared_ptr<DBDecorator> &db_decorator)
+// TODO: remove this dupe code in table.cpp
+string stripSpecialSym(const string &key)
 {
-    auto type = db_decorator->type();
-    auto existed = getDBDecorator(type);
-    m_db_decorators[type] = db_decorator;
-    return existed;
-}
-
-const std::shared_ptr<DBDecorator> DBConnector::getDBDecorator(swss::DBDecoratorType type) const
-{
-    auto existed = m_db_decorators.find(type);
-    std::shared_ptr<DBDecorator> existedDecorator = nullptr;
-    if (existed != m_db_decorators.end()) {
-        existedDecorator = existed->second;
-    }
-
-    return existedDecorator;
-}
-
-const DecoratorMapping &DBConnector::getDBDecorators() const
-{
-    return m_db_decorators;
-}
-
-// TODO: Need discussion connector design, remove following code after discussion.
-/*
-CfgDBConnector::CfgDBConnector(const DBConnector &other, bool getDefaultValue)
-    : DBConnector(other)
-    , m_get_default_value(getDefaultValue)
-{
-    if (getDefaultValue)
+    size_t pos = key.find('@');
+    if (pos != key.npos)
     {
-        m_db_decorator = make_shared<ConfigDBDecorator>();
+        return key.substr(0, pos);
     }
+
+    return key;
 }
 
-CfgDBConnector::CfgDBConnector(int dbId, const RedisContext &ctx, bool getDefaultValue)
-    : DBConnector(dbId, ctx)
-    , m_get_default_value(getDefaultValue)
+bool DBConnector::get(RedisPipeline *pipe, const string &key, vector<FieldValueTuple> &values)
 {
-    if (getDefaultValue)
+    RedisCommand hgetall_key;
+    hgetall_key.format("HGETALL %s", key.c_str());
+    RedisReply r = pipe->push(hgetall_key, REDIS_REPLY_ARRAY);
+    redisReply *reply = r.getContext();
+    values.clear();
+
+    if (!reply->elements)
+        return false;
+
+    if (reply->elements & 1)
+        throw system_error(make_error_code(errc::address_not_available),
+                           "Unable to connect netlink socket");
+
+    for (unsigned int i = 0; i < reply->elements; i += 2)
     {
-        m_db_decorator = make_shared<ConfigDBDecorator>();
+        values.emplace_back(stripSpecialSym(reply->element[i]->str),
+                                    reply->element[i + 1]->str);
     }
+
+    return true;
 }
 
-CfgDBConnector::CfgDBConnector(int dbId, const std::string &hostname, int port, unsigned int timeout, bool getDefaultValue)
-    : DBConnector(dbId, hostname, port, timeout)
-    , m_get_default_value(getDefaultValue)
+map<string, string> DBConnector::hgetall(const string& key)
 {
-    if (getDefaultValue)
+    return hgetall_internal<map<string, string>>(key);
+}
+
+unordered_map<string, string> DBConnector::hgetall_unordered(const string& key)
+{
+    return hgetall_internal<unordered_map<string, string>>(key);
+}
+
+void DBConnector::hgetall(const string& key, insert_iterator<map<string, string> > result)
+{
+    hgetall_internal<insert_iterator<map<string, string> > >(key, result);
+}
+
+
+void DBConnector::hmset(const string &key, vector<FieldValueTuple>::iterator start, vector<FieldValueTuple>::iterator stop)
+{
+    hmset_internal(key, start, stop);
+}
+
+void DBConnector::hmset(const std::string &key, std::map<std::string, std::string>::const_iterator start, std::map<std::string, std::string>::const_iterator stop)
+{
+    hmset_internal(key, start, stop);
+}
+
+template <typename ReturnType>
+ReturnType DBConnector::hgetall_internal(const string &key)
+{
+    ReturnType map;
+    hgetall_internal(key, inserter(map, map.end()));
+    return map;
+}
+
+#ifndef SWIG
+template<typename OutputIterator>
+void DBConnector::hgetall_internal(const string &key, OutputIterator result)
+{
+    RedisCommand shgetall;
+    shgetall.format("HGETALL %s", key.c_str());
+    RedisReply r(this, shgetall, REDIS_REPLY_ARRAY);
+
+    auto ctx = r.getContext();
+
+    for (unsigned int i = 0; i < ctx->elements; i += 2)
     {
-        m_db_decorator = make_shared<ConfigDBDecorator>();
+        *result = make_pair(ctx->element[i]->str, ctx->element[i+1]->str);
+        ++result;
     }
 }
+#endif
 
-CfgDBConnector::CfgDBConnector(const std::string &dbName, unsigned int timeout, bool getDefaultValue, bool isTcpConn)
-    : DBConnector(dbName, timeout, isTcpConn)
-    , m_get_default_value(getDefaultValue)
+template<typename InputIterator>
+void DBConnector::hmset_internal(const std::string &key, InputIterator start, InputIterator stop)
 {
-    if (getDefaultValue)
-    {
-        m_db_decorator = make_shared<ConfigDBDecorator>();
-    }
+    RedisCommand shmset;
+    shmset.formatHMSET(key, start, stop);
+    RedisReply r(this, shmset, REDIS_REPLY_STATUS);
 }
-
-CfgDBConnector::CfgDBConnector(const std::string &dbName, unsigned int timeout, bool isTcpConn, const std::string &netns, bool getDefaultValue)
-    : DBConnector(dbName, timeout, isTcpConn, netns)
-    , m_get_default_value(getDefaultValue)
-{
-    if (getDefaultValue)
-    {
-        m_db_decorator = make_shared<ConfigDBDecorator>();
-    }
-}
-
-CfgDBConnector::~CfgDBConnector()
-{
-}
-
-std::shared_ptr<DBDecorator> CfgDBConnector::getDBDecortor() const
-{
-    return m_db_decorator;
-}
-*/

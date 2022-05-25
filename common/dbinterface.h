@@ -102,6 +102,7 @@ private:
 
     std::unordered_map<std::string, std::shared_ptr<DBConnector>> keyspace_notification_channels;
 
+    // here is the reason why we can't use standard decorator pattern: code save decorator instance here, also almost all API pass decorator reference, change this will break APIs
     std::unordered_map<std::string, DBConnector> m_redisClient;
 
     std::string m_unix_socket_path;

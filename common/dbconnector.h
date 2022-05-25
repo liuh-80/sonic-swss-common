@@ -18,6 +18,7 @@ namespace swss {
 
 class DBConnector;
 class PubSub;
+class RedisPipeline;
 
 typedef std::map<swss::DBDecoratorType, std::shared_ptr<DBDecorator> > DecoratorMapping;
 
@@ -158,11 +159,12 @@ public:
     DBConnector(int dbId, const std::string &unixPath, unsigned int timeout);
     DBConnector(const std::string &dbName, unsigned int timeout, bool isTcpConn = false);
     DBConnector(const std::string &dbName, unsigned int timeout, bool isTcpConn, const std::string &netns);
+    virtual ~DBConnector();
     DBConnector& operator=(const DBConnector&) = delete;
 
-    int getDbId() const;
-    std::string getDbName() const;
-    std::string getNamespace() const;
+    virtual int getDbId() const;
+    virtual std::string getDbName() const;
+    virtual std::string getNamespace() const;
 
 #ifdef SWIG
     %pythoncode %{
@@ -175,9 +177,9 @@ public:
     /* Create new context to DB */
     DBConnector *newConnector(unsigned int timeout) const;
 
-    PubSub *pubsub();
+    virtual PubSub *pubsub();
 
-    int64_t del(const std::string &key);
+    virtual int64_t del(const std::string &key);
 
 #ifdef SWIG
     // SWIG interface file (.i) globally rename map C++ `del` to python `delete`,
@@ -190,120 +192,85 @@ public:
     %}
 #endif
 
-    bool exists(const std::string &key);
+    virtual bool exists(const std::string &key);
 
-    int64_t hdel(const std::string &key, const std::string &field);
+    virtual int64_t hdel(const std::string &key, const std::string &field);
 
-    int64_t hdel(const std::string &key, const std::vector<std::string> &fields);
+    virtual int64_t hdel(const std::string &key, const std::vector<std::string> &fields);
 
-    void del(const std::vector<std::string>& keys);
+    virtual void del(const std::vector<std::string>& keys);
 
-    template <typename ReturnType=std::unordered_map<std::string, std::string>>
-    ReturnType hgetall(const std::string &key);
+    virtual std::map<std::string, std::string> hgetall(const std::string& key);
+
+    virtual std::unordered_map<std::string, std::string> hgetall_unordered(const std::string& key);
 
 #ifndef SWIG
-    template <typename OutputIterator>
-    void hgetall(const std::string &key, OutputIterator result);
+    virtual void hgetall(const std::string& key, std::insert_iterator<std::map<std::string, std::string> > result);
 #endif
 
-    std::vector<std::string> keys(const std::string &key);
+    virtual std::vector<std::string> keys(const std::string &key);
 
-    std::pair<int, std::vector<std::string>> scan(int cursor = 0, const char *match = "", uint32_t count = 10);
+    virtual std::pair<int, std::vector<std::string>> scan(int cursor = 0, const char *match = "", uint32_t count = 10);
 
-    bool set(const std::string &key, const std::string &value);
-    bool set(const std::string &key, int value);
+    virtual bool set(const std::string &key, const std::string &value);
+    virtual bool set(const std::string &key, int value);
 
-    void hset(const std::string &key, const std::string &field, const std::string &value);
+    virtual void hset(const std::string &key, const std::string &field, const std::string &value);
 
-    template<typename InputIterator>
-    void hmset(const std::string &key, InputIterator start, InputIterator stop);
+    virtual void hmset(const std::string &key, std::vector<swss::FieldValueTuple>::iterator start, std::vector<swss::FieldValueTuple>::iterator stop);
 
-    void hmset(const std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>>& multiHash);
+    virtual void hmset(const std::string &key, std::map<std::string, std::string>::const_iterator start, std::map<std::string, std::string>::const_iterator stop);
 
-    std::shared_ptr<std::string> get(const std::string &key);
+    virtual void hmset(const std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>>& multiHash);
 
-    std::shared_ptr<std::string> hget(const std::string &key, const std::string &field);
+    virtual std::shared_ptr<std::string> get(const std::string &key);
 
-    bool hexists(const std::string &key, const std::string &field);
+    virtual std::shared_ptr<std::string> hget(const std::string &key, const std::string &field);
 
-    int64_t incr(const std::string &key);
+    virtual bool hexists(const std::string &key, const std::string &field);
 
-    int64_t decr(const std::string &key);
+    virtual int64_t incr(const std::string &key);
 
-    int64_t rpush(const std::string &list, const std::string &item);
+    virtual int64_t decr(const std::string &key);
 
-    std::shared_ptr<std::string> blpop(const std::string &list, int timeout);
+    virtual int64_t rpush(const std::string &list, const std::string &item);
 
-    void subscribe(const std::string &pattern);
+    virtual std::shared_ptr<std::string> blpop(const std::string &list, int timeout);
 
-    void psubscribe(const std::string &pattern);
+    virtual void subscribe(const std::string &pattern);
 
-    void punsubscribe(const std::string &pattern);
+    virtual void psubscribe(const std::string &pattern);
 
-    int64_t publish(const std::string &channel, const std::string &message);
+    virtual void punsubscribe(const std::string &pattern);
 
-    void config_set(const std::string &key, const std::string &value);
+    virtual int64_t publish(const std::string &channel, const std::string &message);
 
-    bool flushdb();
+    virtual void config_set(const std::string &key, const std::string &value);
 
-    // every DBDecoratorType can ony have 1 decorator, set new one will return old one.
-    const std::shared_ptr<swss::DBDecorator> setDBDecorator(std::shared_ptr<swss::DBDecorator> &db_decorator);
+    virtual bool flushdb();
 
-    const std::shared_ptr<swss::DBDecorator> getDBDecorator(swss::DBDecoratorType type) const;
-
-    const DecoratorMapping &getDBDecorators() const;
+    virtual bool get(RedisPipeline *pipe, const std::string &key, std::vector<swss::FieldValueTuple> &values);
+protected:
+    DBConnector();
 
 private:
     void setNamespace(const std::string &netns);
+
+    template <typename ReturnType=std::unordered_map<std::string, std::string>>
+    ReturnType hgetall_internal(const std::string &key);
+
+    template <typename OutputIterator>
+    void hgetall_internal(const std::string &key, OutputIterator result);
+
+    template<typename InputIterator>
+    void hmset_internal(const std::string &key, InputIterator start, InputIterator stop);
 
     int m_dbId;
     std::string m_dbName;
     std::string m_namespace;
 
     std::string m_shaRedisMulti;
-
-    DecoratorMapping m_db_decorators;
 };
-
-template <typename ReturnType>
-ReturnType DBConnector::hgetall(const std::string &key)
-{
-    ReturnType map;
-    hgetall(key, std::inserter(map, map.end()));
-    return map;
-}
-
-#ifndef SWIG
-template<typename OutputIterator>
-void DBConnector::hgetall(const std::string &key, OutputIterator result)
-{
-    RedisCommand shgetall;
-    shgetall.format("HGETALL %s", key.c_str());
-    RedisReply r(this, shgetall, REDIS_REPLY_ARRAY);
-
-    auto ctx = r.getContext();
-
-    for (unsigned int i = 0; i < ctx->elements; i += 2)
-    {
-        *result = std::make_pair(ctx->element[i]->str, ctx->element[i+1]->str);
-        ++result;
-    }
-
-    auto dbdecortor = this->getDBDecorator(ReadDecorator);
-    if (dbdecortor)
-    {
-        dbdecortor->decorate(key, ctx, result);
-    }
-}
-#endif
-
-template<typename InputIterator>
-void DBConnector::hmset(const std::string &key, InputIterator start, InputIterator stop)
-{
-    RedisCommand shmset;
-    shmset.formatHMSET(key, start, stop);
-    RedisReply r(this, shmset, REDIS_REPLY_STATUS);
-}
 
 /*
 // TODO: need more discussion about the API design, use may both want get/not get default vaule when running time

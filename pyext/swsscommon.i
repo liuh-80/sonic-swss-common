@@ -14,6 +14,7 @@
 
 #include "schema.h"
 #include "dbconnector.h"
+#include "yangdefaultvaluedecorator.h"
 #include "dbdecorator.h"
 #include "dbinterface.h"
 #include "sonicv2connector.h"
@@ -154,6 +155,7 @@ T castSelectableObj(swss::Selectable *temp)
 
 %include "schema.h"
 %include "dbconnector.h"
+%include "yangdefaultvaluedecorator.h"
 %include "dbdecorator.h"
 %include "sonicv2connector.h"
 %include "pubsub.h"
@@ -164,10 +166,6 @@ T castSelectableObj(swss::Selectable *temp)
 %include "redisselect.h"
 %include "redistran.h"
 %include "configdb.h"
-
-%extend swss::DBConnector {
-    %template(hgetall) hgetall<std::map<std::string, std::string>>;
-}
 
 %ignore swss::TableEntryPoppable::pops(std::deque<KeyOpFieldsValuesTuple> &, const std::string &);
 %apply std::vector<std::string>& OUTPUT {std::vector<std::string> &keys};

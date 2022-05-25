@@ -36,11 +36,14 @@ void ConfigDBConnector_Native::db_connect(string db_name, bool wait_for_init, bo
     
     // attach decorator to client
     auto& client = get_redis_client(m_db_name);
+    // TODO: decorate with YangDefaultValueDecorator here
+    /*
     if (m_get_default_value)
     {
         auto decorator = ConfigDBReadDecorator::Create(m_table_name_separator);
         client.setDBDecorator(decorator);
     }
+    */
 
     if (wait_for_init)
     {
@@ -145,7 +148,7 @@ map<string, string> ConfigDBConnector_Native::get_entry(string table, string key
 {
     auto& client = get_redis_client(m_db_name);
     string _hash = to_upper(table) + m_table_name_separator + key;
-    return client.hgetall<map<string, string>>(_hash);
+    return client.hgetall(_hash);
 }
 
 // Read all keys of a table from config db.
@@ -197,7 +200,7 @@ map<string, map<string, string>> ConfigDBConnector_Native::get_table(string tabl
     map<string, map<string, string>> data;
     for (auto& key: keys)
     {
-        auto const& entry = client.hgetall<map<string, string>>(key);
+        auto const& entry = client.hgetall(key);
         size_t pos = key.find(m_table_name_separator);
         string row;
         if (pos == string::npos)
@@ -274,7 +277,7 @@ map<string, map<string, map<string, string>>> ConfigDBConnector_Native::get_conf
         }
         string table_name = key.substr(0, pos);
         string row = key.substr(pos + 1);
-        auto const& entry = client.hgetall<map<string, string>>(key);
+        auto const& entry = client.hgetall(key);
 
         if (!entry.empty())
         {
@@ -516,12 +519,15 @@ int ConfigDBPipeConnector_Native::_get_config(DBConnector& client, RedisTransact
             dataentry.emplace(field, value);
         }
 
+        // TODO: use default value provider here
         // Because run Redis command with pipe not use DBConnector, so need decorate result here.
+        /*
         auto& db_decorator = client.getDBDecorator(ReadDecorator);
         if (db_decorator != nullptr)
         {
             db_decorator->decorate(key, dataentry);
         }
+        */
     }
     return cur;
 }

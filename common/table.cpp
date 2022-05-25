@@ -67,6 +67,7 @@ void Table::flush()
 
 bool Table::get(const string &key, vector<FieldValueTuple> &values)
 {
+    /*
     RedisCommand hgetall_key;
     hgetall_key.format("HGETALL %s", getKeyName(key).c_str());
     RedisReply r = m_pipe->push(hgetall_key, REDIS_REPLY_ARRAY);
@@ -92,8 +93,9 @@ bool Table::get(const string &key, vector<FieldValueTuple> &values)
     {
         db_decorator->decorate(key, values);
     }
+    */
 
-    return true;
+    return m_pipe->getDBConnector()->get(m_pipe, getKeyName(key), values);
 }
 
 bool Table::hget(const string &key, const std::string &field,  std::string &value)
