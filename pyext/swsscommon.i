@@ -19,7 +19,6 @@
 #include "pubsub.h"
 #include "select.h"
 #include "selectable.h"
-#include "signalhandlerhelper.h"
 #include "rediscommand.h"
 #include "table.h"
 #include "redispipeline.h"
@@ -72,7 +71,6 @@
                 PyEval_RestoreThread(m_save);
             }
         } thread_state_guard;
-
         $action
     }
     SWIG_CATCH_STDEXCEPT // catch std::exception derivatives
@@ -155,7 +153,6 @@ T castSelectableObj(swss::Selectable *temp)
 %include "pubsub.h"
 %include "selectable.h"
 %include "select.h"
-%include "signalhandlerhelper.h"
 %include "rediscommand.h"
 %include "redispipeline.h"
 %include "redisselect.h"

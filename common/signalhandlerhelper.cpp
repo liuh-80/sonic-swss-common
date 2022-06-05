@@ -1,3 +1,4 @@
+#include <iostream>
 #include <signal.h>
 #include "common/logger.h"
 #include "signalhandlerhelper.h"
@@ -6,6 +7,7 @@ using namespace swss;
 
 std::map<int, bool> SignalHandlerHelper::m_signalStatusMapping;
 std::map<int, SigActionPair> SignalHandlerHelper::m_sigActionMapping;
+std::map<int, std::shared_ptr<SignalCallbackBase>> SignalHandlerHelper::m_sigCallbackMapping;
 
 void SignalHandlerHelper::registerSignalHandler(int signalNumber)
 {
@@ -33,6 +35,13 @@ void SignalHandlerHelper::registerSignalHandler(int signalNumber)
     m_sigActionMapping[signalNumber] = sig_action_pair;
 }
 
+void SignalHandlerHelper::registerSignalHandler(int signalNumber, std::shared_ptr<SignalCallbackBase> callback)
+{
+    // Call any method on callback here will crash, because GLI been released by swsscommon exception handler.
+    m_sigCallbackMapping[signalNumber] = callback;
+    SignalHandlerHelper::registerSignalHandler(signalNumber);
+}
+
 void SignalHandlerHelper::restoreSignalHandler(int signalNumber)
 {
     auto result = m_sigActionMapping.find(signalNumber);
@@ -51,6 +60,12 @@ void SignalHandlerHelper::restoreSignalHandler(int signalNumber)
 void SignalHandlerHelper::onSignal(int signalNumber)
 {
     m_signalStatusMapping[signalNumber] = true;
+    auto result = m_sigCallbackMapping.find(signalNumber);
+    if (result != m_sigCallbackMapping.end())
+    {
+        SWSS_LOG_DEBUG("call python signal handler for signal: %d.",signalNumber);
+        result->second->onSignal(signalNumber);
+    }
 }
 
 bool SignalHandlerHelper::checkSignal(int signalNumber)

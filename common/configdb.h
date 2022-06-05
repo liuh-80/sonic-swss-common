@@ -39,6 +39,8 @@ protected:
 
 #ifdef SWIG
 %pythoncode %{
+    from swsscommon.signal import SignalHandlerHelper, SIGNAL_INT, SIGNAL_TERM
+
     ## Note: diamond inheritance, reusing functions in both classes
     class ConfigDBConnector(SonicV2Connector, ConfigDBConnector_Native):
 

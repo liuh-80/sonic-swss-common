@@ -1,6 +1,8 @@
 #pragma once
 #include <map>
+#include <memory>
 #include <signal.h>
+#include <iostream>
 
 namespace swss {
 
@@ -13,6 +15,13 @@ enum Signals
     SIGNAL_INT = SIGINT
 };
 
+class SignalCallbackBase
+{
+   public:
+      virtual ~SignalCallbackBase() {};
+      virtual void onSignal(int signalNumber) = 0; 
+};
+
 /*
     SignalHandlerHelper class provide a native signal handler.
     Python signal handler have following issue:
@@ -22,7 +31,8 @@ enum Signals
 class SignalHandlerHelper
 {
 public:
-    static void registerSignalHandler(int signalNumber);
+    static void registerSignalHandler(int signalNumber);\
+    static void registerSignalHandler(int signalNumber, std::shared_ptr<SignalCallbackBase> callback);
     static void restoreSignalHandler(int signalNumber);
     static void onSignal(int signalNumber);
     static bool checkSignal(int signalNumber);
@@ -31,6 +41,29 @@ public:
 private:
     static std::map<int, bool> m_signalStatusMapping;
     static std::map<int, SigActionPair> m_sigActionMapping;
+    static std::map<int, std::shared_ptr<SignalCallbackBase>> m_sigCallbackMapping;
 };
+
+#ifdef SWIG
+%pythoncode %{
+def RegisterSignalHandler(signalNumber, handler):
+    if not callable(handler):
+        raise TypeError("Parameter handler is not a callable object!")
+
+    class SignalCallbackWrapper(SignalCallbackBase):
+        def __init__(self, signalhandler):
+            super(SignalCallbackWrapper, self).__init__()
+            self.m_signalhandler = signalhandler
+
+        def onSignal(self, signalNumber):
+            self.m_signalhandler(signalNumber)
+
+    warpper = SignalCallbackWrapper(handler)
+
+    # Transfer ownership to SignalHandlerHelper, for more information please check: https://www.swig.org/Doc4.0/Python.html#Python_nn35
+    SignalHandlerHelper.registerSignalHandler(signalNumber, warpper.__disown__())
+
+%}
+#endif
 
 }
