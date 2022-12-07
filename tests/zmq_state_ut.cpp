@@ -12,6 +12,8 @@
 #include "common/table.h"
 #include "common/zmqproducerstatetable.h"
 #include "common/zmqconsumerstatetable.h"
+#include "common/producerstatetable.h"
+#include "common/consumerstatetable.h"
 
 #include <algorithm>
 #include <iostream>
@@ -63,7 +65,7 @@ static inline int readNumberAtEOL(const string& str)
 static void producerWorker(string tableName, string endpoint)
 {
     DBConnector db(TEST_DB, 0, true);
-    ZmqProducerStateTable p(&db, tableName, endpoint);
+    ProducerStateTable p(&db, tableName);
     cout << "Producer thread started: " << tableName << endl;
 
     g_startTime = std::chrono::system_clock::now();
@@ -88,7 +90,7 @@ static void consumerWorker(string tableName, string endpoint)
     cout << "Consumer thread started: " << tableName << endl;
     
     DBConnector db(TEST_DB, 0, true);
-    ZmqConsumerStateTable c(&db, tableName, endpoint);
+    ConsumerStateTable c(&db, tableName);
     Select cs;
     cs.addSelectable(&c);
 
@@ -99,7 +101,7 @@ static void consumerWorker(string tableName, string endpoint)
     int received = 0;
     while (received < NUMBER_OF_OPS)
     {
-        while ((ret = cs.select(&selectcs)) == Select::OBJECT)
+        if ((ret = cs.select(&selectcs)) == Select::OBJECT)
         {
             c.pops(vkco);
             if (!vkco.empty())
@@ -113,7 +115,6 @@ static void consumerWorker(string tableName, string endpoint)
                 vkco.pop_front();
             }
         }
-
     }
 
     cout << "Consumer thread ended: " << tableName << "received: " << received << endl;
