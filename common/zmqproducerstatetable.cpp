@@ -266,6 +266,7 @@ void ZmqProducerStateTable::sendMsg(
             SWSS_LOG_THROW("zmq send failed, endpoint: %s, error: %d", m_endpoint.c_str(), rc);
         }
 
+        // retry when send failed
         sleep(1);
     }
 

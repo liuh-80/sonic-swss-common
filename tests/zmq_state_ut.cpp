@@ -13,17 +13,25 @@
 #include "common/zmqproducerstatetable.h"
 #include "common/zmqconsumerstatetable.h"
 
+#include <algorithm>
+#include <iostream>
+#include <iomanip>
+#include <ctime>
+#include <chrono>
+
 using namespace std;
 using namespace swss;
 
 #define TEST_DB           "APPL_DB" // Need to test against a DB which uses a colon table name separator due to hardcoding in consumer_table_pops.lua
 #define NUMBER_OF_THREADS    (1) // Spawning more than 256 threads causes libc++ to except
-#define NUMBER_OF_OPS        (100)
+#define NUMBER_OF_OPS        (10000)
 #define MAX_FIELDS       10 // Testing up to 30 fields objects
 #define PRINT_SKIP           (10) // Print + for Producer and - for Consumer for every 100 ops
 #define MAX_KEYS             (10)       // Testing up to 30 keys objects
 
 static int running_thread_count = 0;
+std::chrono::time_point<std::chrono::system_clock>  g_startTime;
+std::chrono::time_point<std::chrono::system_clock>  g_endTime;
 
 static inline string field(int i)
 {
@@ -58,6 +66,7 @@ static void producerWorker(string tableName, string endpoint)
     ZmqProducerStateTable p(&db, tableName, endpoint);
     cout << "Producer thread started: " << tableName << endl;
 
+    g_startTime = std::chrono::system_clock::now();
     for (int i = 0; i < NUMBER_OF_OPS; i++)
     {
         vector<FieldValueTuple> fields;
@@ -69,56 +78,11 @@ static void producerWorker(string tableName, string endpoint)
         p.set("set_key_" + to_string(i), fields);
     }
 
-    for (int i = 0; i < NUMBER_OF_OPS; i++)
-    {
-        p.del("del_key_" + to_string(i));
-    }
-
-    for (int i = 0; i < NUMBER_OF_OPS; i++)
-    {
-        std::vector<KeyOpFieldsValuesTuple> vkco;
-        vkco.resize(MAX_KEYS);
-        for (int j = 0; j < MAX_KEYS; j++)
-        {
-            auto& kco = vkco[j];
-            auto& values = kfvFieldsValues(kco);
-            kfvKey(kco) = "batch_set_key_" + to_string(i) + "_" + to_string(j);
-            kfvOp(kco) = "SET";
-            
-            for (int k = 0; k < MAX_FIELDS; k++)
-            {
-                FieldValueTuple t(field(k), value(k));
-                values.push_back(t);
-            }
-        }
-        
-        cout << "Send event: " << "batch_set_key_" + to_string(i) << endl;
-        p.set(vkco);
-    }
-
-    for (int i = 0; i < NUMBER_OF_OPS; i++)
-    {
-        std::vector<std::string> keys;
-        for (int j = 0; j < MAX_KEYS; j++)
-        {
-            keys.push_back("batch_del_key_" + to_string(i) + "_" + to_string(j));
-        }
-
-        cout << "Send event: " << "batch_del_key_" + to_string(i) << endl;
-        p.del(keys);
-    }
-
     cout << "Producer thread ended: " << tableName << endl;
     
     running_thread_count--;
 }
 
-// variable used by consumer worker
-static int setCount = 0;
-static int delCount = 0;
-static int batchSetCount = 0;
-static int batchDelCount = 0;
-    
 static void consumerWorker(string tableName, string endpoint)
 {
     cout << "Consumer thread started: " << tableName << endl;
@@ -132,58 +96,39 @@ static void consumerWorker(string tableName, string endpoint)
     Selectable *selectcs;
     std::deque<KeyOpFieldsValuesTuple> vkco;
     int ret = 0;
-    int wait_loop_count = 10;
-    while (running_thread_count > 0 || wait_loop_count > 0)
+    int received = 0;
+    while (received < NUMBER_OF_OPS)
     {
-        if (running_thread_count <= 0)
-        {
-            // after all producer thread exit, maybe still some event in queue
-            wait_loop_count--;
-        }
-
         while ((ret = cs.select(&selectcs)) == Select::OBJECT)
         {
             c.pops(vkco);
+            if (!vkco.empty())
+            {
+                g_endTime = std::chrono::system_clock::now();
+            }
+
             while (!vkco.empty())
             {
-                auto &kco = vkco.front();
-                auto key = kfvKey(kco);
-                auto op = kfvOp(kco);
-                auto fvs = kfvFieldsValues(kco);
-
-                if (key.rfind("batch_set_key_", 0) == 0)
-                {
-                    EXPECT_EQ(fvs.size(), MAX_FIELDS);
-                    batchSetCount++;
-                }
-                else if (key.rfind("set_key_", 0) == 0)
-                {
-                    EXPECT_EQ(fvs.size(), MAX_FIELDS);
-                    setCount++;
-                }
-                else if (key.rfind("batch_del_key_", 0) == 0)
-                {
-                    EXPECT_EQ(fvs.size(), 0);
-                    batchDelCount++;
-                }
-                else if (key.rfind("del_key_", 0) == 0)
-                {
-                    EXPECT_EQ(fvs.size(), 0);
-                    delCount++;
-                }
-
+                received++;
                 vkco.pop_front();
             }
         }
 
-        sleep(1);
     }
 
-    cout << "Consumer thread ended: " << tableName << endl;
+    cout << "Consumer thread ended: " << tableName << "received: " << received << endl;
 }
 
-TEST(ZmqConsumerStateTable, test)
+static inline void clearDB()
 {
+    DBConnector db(TEST_DB, 0, true);
+    RedisReply r(&db, "FLUSHALL", REDIS_REPLY_STATUS);
+    r.checkStatusOK();
+}
+
+TEST(ZmqConsumerStateTable, perf_test)
+{
+    clearDB();
     std::string testTableName = "ZMQ_PROD_CONS_UT";
     std::string pushEndpoint = "tcp://localhost:1234";
     std::string pullEndpoint = "tcp://*:1234";
@@ -210,10 +155,9 @@ TEST(ZmqConsumerStateTable, test)
     consumerThread->join();
     delete consumerThread;
 
-    EXPECT_EQ(setCount, NUMBER_OF_THREADS * NUMBER_OF_OPS);
-    EXPECT_EQ(delCount, NUMBER_OF_THREADS * NUMBER_OF_OPS);
-    EXPECT_EQ(batchSetCount, NUMBER_OF_THREADS * NUMBER_OF_OPS * MAX_KEYS);
-    EXPECT_EQ(batchDelCount, NUMBER_OF_THREADS * NUMBER_OF_OPS * MAX_KEYS);
-
+    std::cout
+      << "Transfer data took "
+      << std::chrono::duration_cast<std::chrono::microseconds>(g_endTime - g_startTime).count() << "µs ≈ " << std::endl;
+      
     cout << endl << "Done." << endl;
 }
