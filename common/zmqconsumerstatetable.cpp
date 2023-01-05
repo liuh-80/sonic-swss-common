@@ -9,7 +9,7 @@
 #include "redisselect.h"
 #include "redisapi.h"
 #include "zmqconsumerstatetable.h"
-#include "json.h"
+#include "binaryserializer.h"
 
 #include <zmq.h>
 
@@ -36,12 +36,12 @@ ZmqConsumerStateTable::~ZmqConsumerStateTable()
     m_mqPollThread->join();
 }
 
-void ZmqConsumerStateTable::handleReceivedData(const char *json, Table& table)
+void ZmqConsumerStateTable::handleReceivedData(const char* buffer, const size_t size, Table& table)
 {
     auto ptr = std::make_shared<KeyOpFieldsValuesTuple>();
     KeyOpFieldsValuesTuple &kco = *ptr;
     auto& values = kfvFieldsValues(kco);
-    swss::JSon::readJson(json, values);
+    BinarySerializer::deSerializeBuffer(buffer, size, values);
 
     // set key and OP
     swss::FieldValueTuple fvt = values.at(0);
@@ -74,7 +74,7 @@ void ZmqConsumerStateTable::mqPollThread()
 {
     SWSS_LOG_ENTER();
     SWSS_LOG_NOTICE("mqPollThread begin");
-    std::vector<uint8_t> buffer;
+    std::vector<char> buffer;
     buffer.resize(MQ_RESPONSE_BUFFER_SIZE);
     
     // Follow same logic in ConsumerStateTable: every received data will write to 'table'.
@@ -138,7 +138,7 @@ void ZmqConsumerStateTable::mqPollThread()
         SWSS_LOG_DEBUG("zmq received %d bytes", rc);
 
         // deserialize and write to redis:
-        handleReceivedData((const char*)buffer.data(), table);
+        handleReceivedData(buffer.data(), rc, table);
     }
 
     zmq_close(socket);

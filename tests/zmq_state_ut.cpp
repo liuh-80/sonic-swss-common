@@ -25,23 +25,53 @@ using namespace swss;
 
 std::shared_ptr<swss::DBConnector>          g_db;
 std::shared_ptr<swss::RedisPipeline>        g_redisPipeline;
+bool g_destoried = false;
+class TestStr : public string
+{
+public:
+    TestStr(char* val)
+    : string(val)
+    {
+        cout << "Ctor: " << this->c_str()  << endl;
+    }
+    
+    ~TestStr()
+    {
+        cout << "Dtor: " << this->c_str() << endl;
+        g_destoried = true;
+    }
+};
 
 static void exitHandler()
 {
     sleep(2);
-    //exit(0);
-    _exit(0);
+    exit(0);
+    //_exit(0);
 }
+
 
 static void routeCreater()
 {
     while (true)
     {
-        cout << "Start redis command" << endl;
+        //cout << "Start redis command" << endl;
         RedisCommand command;
         command.format("HLEN %s", "TEST_KEY");
         g_redisPipeline->push(command, REDIS_REPLY_INTEGER);
-        cout << "End redis command" << endl;
+        //cout << "End redis command" << endl;
+    }
+}
+
+static void checkStaticString()
+{
+    static TestStr test("1234567890");
+    while (true)
+    {
+        cout << "Static string: " << test.c_str() << endl;
+        if (g_destoried)
+        {
+            break;
+        }
     }
 }
 
@@ -52,11 +82,14 @@ TEST(RedisPipeline, test)
 
     thread *exitThread = new thread(exitHandler);
     thread *routeCreaterThread = new thread(routeCreater);
+    thread *checkStaticStringThread = new thread(checkStaticString);
 
     sleep(5);
 
     exitThread->join();
     routeCreaterThread->join();
+    checkStaticStringThread->join();
     delete exitThread;
     delete routeCreaterThread;
+    delete checkStaticStringThread;
 }

@@ -80,7 +80,7 @@ public:
     }
 
 private:
-    void handleReceivedData(const char *json, Table& table);
+    void handleReceivedData(const char* buffer, const size_t size, Table& table);
 
     void mqPollThread();
 
