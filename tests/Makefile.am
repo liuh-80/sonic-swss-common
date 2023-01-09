@@ -11,7 +11,7 @@ endif
 CFLAGS_GTEST =
 LDADD_GTEST = -L/usr/src/gtest -lgtest -lgtest_main -lgmock -lgmock_main
 
-tests_SOURCES = redis_ut.cpp                \
+tests_SOURCES = binary_serializer_ut.cpp                \
                 redis_piped_ut.cpp          \
                 redis_state_ut.cpp          \
                 redis_piped_state_ut.cpp    \
@@ -46,6 +46,7 @@ tests_SOURCES = redis_ut.cpp                \
                 events_ut.cpp               \
                 restart_waiter_ut.cpp       \
                 redis_table_waiter_ut.cpp   \
+                binary_serializer_ut.cpp    \
                 zmq_state_ut.cpp            \
                 main.cpp
 
