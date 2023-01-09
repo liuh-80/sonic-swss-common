@@ -7,7 +7,7 @@
 using namespace std;
 using namespace swss;
 
-TEST(Serializer, serialize_deserialize)
+TEST(BinarySerializer, serialize_deserialize)
 {
     string test_entry_key = "test_key";
     string test_command = "test_command";
@@ -37,7 +37,7 @@ TEST(Serializer, serialize_deserialize)
     EXPECT_TRUE(fvValue(fvt) == test_value);
 }
 
-TEST(Serializer, serialize_overflow)
+TEST(BinarySerializer, serialize_overflow)
 {
     char buffer[50];
     BinarySerializer serializer(buffer, sizeof(buffer));
@@ -46,7 +46,7 @@ TEST(Serializer, serialize_overflow)
     EXPECT_THROW(serializer.serializeBuffer("test_entry_key", values, "test_command"), runtime_error);
 }
 
-TEST(Serializer, deserialize_overflow)
+TEST(BinarySerializer, deserialize_overflow)
 {
     char buffer[100];
     BinarySerializer serializer(buffer, sizeof(buffer));
