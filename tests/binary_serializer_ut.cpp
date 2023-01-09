@@ -1,8 +1,4 @@
 #include <iostream>
-#include <memory>
-#include <thread>
-#include <algorithm>
-#include <deque>
 #include "gtest/gtest.h"
 
 #include "common/table.h"
@@ -11,7 +7,7 @@
 using namespace std;
 using namespace swss;
 
-TEST(BinarySerializer, test)
+TEST(Serializer, serialize_deserialize)
 {
     string test_entry_key = "test_key";
     string test_command = "test_command";
@@ -39,10 +35,9 @@ TEST(BinarySerializer, test)
     fvt = deserialized_values.at(1);
     EXPECT_TRUE(fvField(fvt) == test_key);
     EXPECT_TRUE(fvValue(fvt) == test_value);
-
 }
 
-TEST(BinarySerializer, serializeoverflow)
+TEST(Serializer, serialize_overflow)
 {
     char buffer[50];
     BinarySerializer serializer(buffer, sizeof(buffer));
@@ -51,7 +46,7 @@ TEST(BinarySerializer, serializeoverflow)
     EXPECT_THROW(serializer.serializeBuffer("test_entry_key", values, "test_command"), runtime_error);
 }
 
-TEST(BinarySerializer, deserializeoverflow)
+TEST(Serializer, deserialize_overflow)
 {
     char buffer[100];
     BinarySerializer serializer(buffer, sizeof(buffer));
@@ -65,4 +60,3 @@ TEST(BinarySerializer, deserializeoverflow)
     auto& deserialized_values = kfvFieldsValues(kco);
     EXPECT_THROW(BinarySerializer::deSerializeBuffer(buffer, serialized_len - 10, deserialized_values), runtime_error);
 }
-
