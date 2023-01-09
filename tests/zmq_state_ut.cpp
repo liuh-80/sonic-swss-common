@@ -197,7 +197,7 @@ TEST(ZmqConsumerStateTable, test)
         delete producerThreads[i];
     }
     
-    usleep(10 * 1000 * 1000);
+    usleep(20 * 1000 * 1000);
     runConsumerThread = false;
     
     consumerThread->join();
