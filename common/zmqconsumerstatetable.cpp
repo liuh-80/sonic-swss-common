@@ -1,7 +1,6 @@
 #include <string>
 #include <deque>
 #include <limits>
-#include <iostream>
 #include <hiredis/hiredis.h>
 #include <zmq.h>
 #include "dbconnector.h"
@@ -92,7 +91,6 @@ void ZmqConsumerStateTable::dbUpdateThread()
     while (m_runThread)
     {
         m_dbUpdateDataNotifyCv.wait(cvLock);
-        std::cout << "update thread run" << std::endl;
 
         size_t count;
         {
@@ -172,7 +170,7 @@ void ZmqConsumerStateTable::mqPollThread()
         }
 
         // receive message
-        rc = zmq_recv(socket, buffer.data(), MQ_RESPONSE_BUFFER_SIZE, 0);
+        rc = zmq_recv(socket, buffer.data(), MQ_RESPONSE_BUFFER_SIZE, ZMQ_DONTWAIT);
         if (rc < 0)
         {
             SWSS_LOG_DEBUG("zmq_recv failed, endpoint: %s,zmqerrno: %d", m_endpoint.c_str(), zmq_errno());
