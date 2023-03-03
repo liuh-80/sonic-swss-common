@@ -69,15 +69,36 @@ static void producerWorker(string tableName, string endpoint)
     cout << "Producer thread started: " << tableName << endl;
 
     g_startTime = std::chrono::system_clock::now();
-    for (int i = 0; i < NUMBER_OF_OPS; i++)
+    //for (int i = 0; i < NUMBER_OF_OPS; i++)
+    for (int i = 0; i < NUMBER_OF_OPS;)
     {
-        vector<FieldValueTuple> fields;
-        for (int j = 0; j < MAX_FIELDS; j++)
+        /*
+            vector<FieldValueTuple> fields;
+            for (int j = 0; j < MAX_FIELDS; j++)
+            {
+                FieldValueTuple t(field(j), value(j));
+                fields.push_back(t);
+            }
+            p.set("set_key_" + to_string(i), fields);
+        */
+        std::vector<KeyOpFieldsValuesTuple> values;
+
+        for (int k=0; k< 2; k++)
         {
-            FieldValueTuple t(field(j), value(j));
-            fields.push_back(t);
+            values.emplace_back();
+            auto &current_value = values.back();
+
+            kfvKey(current_value) = "set_key_" + to_string(i);
+            for (int j = 0; j < MAX_FIELDS; j++)
+            {
+                kfvFieldsValues(current_value).emplace_back(field(j), value(j));
+            }
+
+            i++;
         }
-        p.set("set_key_" + to_string(i), fields);
+
+        p.set(values);
+        //cout << "Producer thread send: " << i << endl;
     }
 
     cout << "Producer thread ended: " << tableName << endl;
@@ -114,6 +135,7 @@ static void consumerWorker(string tableName, string endpoint)
                 received++;
                 vkco.pop_front();
             }
+            //cout << "Consumer thread receive: " << received << endl;
         }
     }
 
