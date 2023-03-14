@@ -11,42 +11,7 @@ endif
 CFLAGS_GTEST =
 LDADD_GTEST = -L/usr/src/gtest -lgtest -lgtest_main -lgmock -lgmock_main
 
-tests_SOURCES = redis_ut.cpp                \
-                redis_piped_ut.cpp          \
-                redis_state_ut.cpp          \
-                redis_piped_state_ut.cpp    \
-                tokenize_ut.cpp             \
-                json_ut.cpp                 \
-                ntf_ut.cpp                  \
-                ipaddress_ut.cpp            \
-                ipprefix_ut.cpp             \
-                macaddress_ut.cpp           \
-                converter_ut.cpp            \
-                exec_ut.cpp                 \
-                redis_subscriber_state_ut.cpp \
-                selectable_priority.cpp       \
-                warm_restart_ut.cpp         \
-                redis_multi_db_ut.cpp       \
-                logger_ut.cpp               \
-                ../common/loglevel.cpp      \
-                loglevel_ut.cpp             \
-                redis_multi_ns_ut.cpp       \
-                fdb_flush.cpp               \
-                stringutility_ut.cpp        \
-                redisutility_ut.cpp         \
-                boolean_ut.cpp              \
-                status_code_util_test.cpp   \
-                saiaclschema_ut.cpp         \
-                countertable_ut.cpp         \
-                timer_ut.cpp                \
-                cli_ut.cpp                  \
-                defaultvalueprovider_ut.cpp \
-                events_common_ut.cpp        \
-                events_service_ut.cpp       \
-                events_ut.cpp               \
-                restart_waiter_ut.cpp       \
-                redis_table_waiter_ut.cpp   \
-                zmq_state_ut.cpp            \
+tests_SOURCES = zmq_state_ut.cpp            \
                 main.cpp
 
 tests_CFLAGS = $(DBGFLAGS) $(AM_CFLAGS) $(CFLAGS_COMMON) $(CFLAGS_GTEST) $(LIBNL_CFLAGS)

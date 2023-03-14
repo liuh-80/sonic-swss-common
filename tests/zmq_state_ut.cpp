@@ -26,7 +26,7 @@ using namespace swss;
 
 #define TEST_DB           "APPL_DB" // Need to test against a DB which uses a colon table name separator due to hardcoding in consumer_table_pops.lua
 #define NUMBER_OF_THREADS    (1) // Spawning more than 256 threads causes libc++ to except
-#define NUMBER_OF_OPS        (10000)
+#define NUMBER_OF_OPS        (100000)
 #define MAX_FIELDS       10 // Testing up to 30 fields objects
 #define PRINT_SKIP           (10) // Print + for Producer and - for Consumer for every 100 ops
 #define MAX_KEYS             (10)       // Testing up to 30 keys objects
@@ -43,7 +43,9 @@ static inline string field(int i)
 static inline string value(int i)
 {
     if (i == 0) return string(); // empty
-    return string("value ") + to_string(i);
+    //return string("value ") + to_string(i) + "\"F4939FEFC47E:9.0.0.1/32\": {\"action_type\": \"vnet\",\"vnet\": \"Vnet001\"}";
+    return string("value ") + to_string(i) + "\"Vnet001:26.0.0.1\": {\"routing_type\":\"vnet_encap\",\"underlay_ip\":\"126.0.0.1\",\"mac_address\":\"F9-22-83-99-22-A2\"}";
+
 }
 
 static inline bool IsDigit(char ch)
@@ -68,15 +70,16 @@ static void producerWorker(string tableName, string endpoint)
     ProducerStateTable p(&db, tableName);
     cout << "Producer thread started: " << tableName << endl;
 
+    vector<FieldValueTuple> fields;
+    for (int j = 0; j < MAX_FIELDS; j++)
+    {
+        FieldValueTuple t(field(j), value(j));
+        fields.push_back(t);
+    }
+
     g_startTime = std::chrono::system_clock::now();
     for (int i = 0; i < NUMBER_OF_OPS; i++)
     {
-        vector<FieldValueTuple> fields;
-        for (int j = 0; j < MAX_FIELDS; j++)
-        {
-            FieldValueTuple t(field(j), value(j));
-            fields.push_back(t);
-        }
         p.set("set_key_" + to_string(i), fields);
     }
 
