@@ -17,7 +17,7 @@ ZmqServer::ZmqServer(const std::string& endpoint)
     m_mqPollThread = std::make_shared<std::thread>(&ZmqServer::mqPollThread, this);
     m_runThread = true;
 
-    SWSS_LOG_DEBUG("ZmqServer ctor endpoint: %s", endpoint.c_str());
+    SWSS_LOG_WARN("ZmqServer ctor endpoint: %s", endpoint.c_str());
 }
 
 ZmqServer::~ZmqServer()
@@ -33,12 +33,12 @@ void ZmqServer::registerMessageHandler(
 {
     auto dbResult = m_HandlerMap.insert(pair<string, map<string, ZmqMessageHandler*>>(dbName, map<string, ZmqMessageHandler*>()));
     if (dbResult.second) {
-        SWSS_LOG_DEBUG("ZmqServer add handler mapping for db: %s", dbName.c_str());
+        SWSS_LOG_WARN("ZmqServer add handler mapping for db: %s", dbName.c_str());
     }
 
     auto tableResult = dbResult.first->second.insert(pair<string, ZmqMessageHandler*>(tableName, handler));
     if (tableResult.second) {
-        SWSS_LOG_DEBUG("ZmqServer register handler for db: %s, table: %s", dbName.c_str(), tableName.c_str());
+        SWSS_LOG_WARN("ZmqServer register handler for db: %s, table: %s", dbName.c_str(), tableName.c_str());
     }
 }
 
@@ -48,13 +48,13 @@ ZmqMessageHandler* ZmqServer::findMessageHandler(
 {
     auto dbMappingIter = m_HandlerMap.find(dbName);
     if (dbMappingIter == m_HandlerMap.end()) {
-        SWSS_LOG_DEBUG("ZmqServer can't find any handler for db: %s", dbName.c_str());
+        SWSS_LOG_WARN("ZmqServer can't find any handler for db: %s", dbName.c_str());
         return nullptr;
     }
 
     auto tableMappingIter = dbMappingIter->second.find(tableName);
     if (tableMappingIter == dbMappingIter->second.end()) {
-        SWSS_LOG_DEBUG("ZmqServer can't find handler for db: %s, table: %s", dbName.c_str(), tableName.c_str());
+        SWSS_LOG_WARN("ZmqServer can't find handler for db: %s, table: %s", dbName.c_str(), tableName.c_str());
         return nullptr;
     }
 
@@ -77,7 +77,7 @@ void ZmqServer::handleReceivedData(const char* buffer, const size_t size)
     // find handler
     auto handler = findMessageHandler(dbName, tableName);
     if (handler == nullptr) {
-        SWSS_LOG_WARN("ZmqServer can't find handler for received message: %s", buffer);
+        SWSS_LOG_WARN("ZmqServer can't find handler for received message: db: %s, table: %s", dbName.c_str(), tableName.c_str());
         return;
     }
 

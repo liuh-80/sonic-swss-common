@@ -25,19 +25,19 @@ ZmqConsumerStateTable::ZmqConsumerStateTable(DBConnector *db, const std::string 
 {
     if (dbPersistence)
     {
-        SWSS_LOG_DEBUG("Database persistence enabled, tableName: %s", tableName.c_str());
+        SWSS_LOG_WARN("Database persistence enabled, tableName: %s", tableName.c_str());
         m_runThread = true;
         m_dbUpdateThread = std::make_shared<std::thread>(&ZmqConsumerStateTable::dbUpdateThread, this);
     }
     else
     {
-        SWSS_LOG_DEBUG("Database persistence disabled, tableName: %s", tableName.c_str());
+        SWSS_LOG_WARN("Database persistence disabled, tableName: %s", tableName.c_str());
         m_dbUpdateThread = nullptr;
     }
 
     m_zmqServer.registerMessageHandler(m_db->getDbName(), tableName, this);
 
-    SWSS_LOG_DEBUG("ZmqConsumerStateTable ctor tableName: %s", tableName.c_str());
+    SWSS_LOG_WARN("ZmqConsumerStateTable ctor tableName: %s", tableName.c_str());
 }
 
 ZmqConsumerStateTable::~ZmqConsumerStateTable()
