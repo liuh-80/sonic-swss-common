@@ -45,7 +45,10 @@ void Select::addSelectable(Selectable *selectable)
 
     if (selectable->initializedWithData())
     {
+        SWSS_LOG_ERROR("[TEST] Select::addSelectable has data: %zu,  m_ready: %zu", (size_t)selectable, m_ready.size());
+        selectable->updateEarliestEventTime();
         m_ready.insert(selectable);
+        SWSS_LOG_ERROR("[TEST] Select::addSelectable after insert m_ready: %zu", m_ready.size());
     }
 
     struct epoll_event ev = {
@@ -61,6 +64,8 @@ void Select::addSelectable(Selectable *selectable)
                           + strerror(errno));
         throw std::runtime_error(error);
     }
+
+    SWSS_LOG_ERROR("[TEST]  Select::addSelectable m_ready: %zu", m_ready.size());
 }
 
 void Select::removeSelectable(Selectable *selectable)
@@ -68,6 +73,8 @@ void Select::removeSelectable(Selectable *selectable)
     const int fd = selectable->getFd();
 
     m_objects.erase(fd);
+    SWSS_LOG_ERROR("[TEST] Select::removeSelectable: %zu, m_ready: %zu", (size_t)selectable, m_ready.size());
+    selectable->resetEarliestEventTime();
     m_ready.erase(selectable);
 
     int res = ::epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
@@ -117,6 +124,7 @@ int Select::poll_descriptors(Selectable **c, unsigned int timeout, bool interrup
         return Select::ERROR;
     }
 
+    std::string tables = "";
     for (int i = 0; i < ret; ++i)
     {
         int fd = events[i].data.fd;
@@ -130,20 +138,25 @@ int Select::poll_descriptors(Selectable **c, unsigned int timeout, bool interrup
             SWSS_LOG_ERROR("readData error: %s", ex.what());
             return Select::ERROR;
         }
+
+        tables += std::to_string((size_t)sel);
+        tables += ";";
+        sel->updateEarliestEventTime();
         m_ready.insert(sel);
     }
+    SWSS_LOG_ERROR("[TEST] Select::poll sel: %s , m_ready: %zu, epool ret: %d", tables.c_str(), m_ready.size(), ret);
 
     while (!m_ready.empty())
     {
         auto sel = *m_ready.begin();
 
+        SWSS_LOG_ERROR("[TEST] Select::poll erase: %zu", (size_t)sel);
         m_ready.erase(sel);
-        // we must update clock only when the selector out of the m_ready
-        // otherwise we break invariant of the m_ready
-        sel->updateLastUsedTime();
 
         if (!sel->hasData())
         {
+            SWSS_LOG_ERROR("[TEST] Select::poll remove empty: %zu", (size_t)sel);
+            sel->resetEarliestEventTime();
             continue;
         }
 
@@ -152,14 +165,21 @@ int Select::poll_descriptors(Selectable **c, unsigned int timeout, bool interrup
         if (sel->hasCachedData())
         {
             // reinsert Selectable back to the m_ready set, when there're more messages in the cache
+            SWSS_LOG_ERROR("[TEST] Select::poll re-insert: %zu", (size_t)sel);
             m_ready.insert(sel);
+        }
+        else
+        {
+            sel->resetEarliestEventTime();
         }
 
         sel->updateAfterRead();
 
+        SWSS_LOG_ERROR("[TEST] Select::poll return: %zu , m_ready: %zu", (size_t)sel, m_ready.size());
         return Select::OBJECT;
     }
 
+    SWSS_LOG_ERROR("[TEST] Select::poll timeout, m_ready: %zu", m_ready.size());
     return Select::TIMEOUT;
 }
 
