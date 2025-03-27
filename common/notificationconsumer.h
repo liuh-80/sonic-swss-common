@@ -29,6 +29,11 @@ public:
     void pop(std::string &op, std::string &data, std::vector<FieldValueTuple> &values);
     void pops(std::deque<KeyOpFieldsValuesTuple> &vkco);
 
+    void saveToSync();
+    KeyOpFieldsValuesTuple& getSyncFront();
+    void popSyncFront();
+    bool syncIsEmpty();
+
     // Check the internal queue which fed from redis socket for data ready
     // Returns:
     //     1 - data immediately available inside internal queue, may be just fed from redis socket
@@ -52,10 +57,14 @@ private:
     void processReply(redisReply *reply);
     void subscribe();
 
+    void popsWithoutClear(std::deque<KeyOpFieldsValuesTuple> &vkco);
+
     swss::DBConnector *m_db;
     swss::DBConnector *m_subscribe;
     std::string m_channel;
     std::queue<std::string> m_queue;
+
+    std::deque<KeyOpFieldsValuesTuple> m_toSync;
 };
 
 }

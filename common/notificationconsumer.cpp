@@ -165,11 +165,9 @@ void swss::NotificationConsumer::pop(std::string &op, std::string &data, std::ve
     values.erase(values.begin());
 }
 
-void swss::NotificationConsumer::pops(std::deque<KeyOpFieldsValuesTuple> &vkco)
+void swss::NotificationConsumer::popsWithoutClear(std::deque<KeyOpFieldsValuesTuple> &vkco)
 {
     SWSS_LOG_ENTER();
-
-    vkco.clear();
     while(!m_queue.empty())
     {
         while(!m_queue.empty())
@@ -179,6 +177,7 @@ void swss::NotificationConsumer::pops(std::deque<KeyOpFieldsValuesTuple> &vkco)
             std::vector<FieldValueTuple> values;
 
             pop(op, data, values);
+            SWSS_LOG_ERROR("[TEST] NotificationConsumer::popsWithoutClear, table pops entry: %s, op: %s", data.c_str(), op.c_str());
             vkco.emplace_back(data, op, values);
         }
 
@@ -193,6 +192,37 @@ void swss::NotificationConsumer::pops(std::deque<KeyOpFieldsValuesTuple> &vkco)
 
         readData();
     }
+}
+void swss::NotificationConsumer::pops(std::deque<KeyOpFieldsValuesTuple> &vkco)
+{
+    SWSS_LOG_ENTER();
+
+    vkco.clear();
+    SWSS_LOG_ERROR("[TEST] NotificationConsumer::pops, table pops: %s", m_channel.c_str());
+    popsWithoutClear(vkco);
+}
+
+
+void swss::NotificationConsumer::saveToSync()
+{
+    SWSS_LOG_ENTER();
+    SWSS_LOG_ERROR("[TEST] NotificationConsumer::saveToSync, table pops: %s", m_channel.c_str());
+    popsWithoutClear(m_toSync);
+}
+
+swss::KeyOpFieldsValuesTuple& swss::NotificationConsumer::getSyncFront()
+{
+    return m_toSync.front();
+}
+
+void swss::NotificationConsumer::popSyncFront()
+{
+    m_toSync.pop_front();
+}
+
+bool swss::NotificationConsumer::syncIsEmpty()
+{
+    return m_toSync.empty();
 }
 
 int swss::NotificationConsumer::peek()
